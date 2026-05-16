@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "Crop": {
+      "title": "Crop",
+      "description": "Information about a specific farming crop.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "soilType": { "type": "string" },
+        "sunlight": { "type": "string" },
+        "watering": { "type": "string" },
+        "pestsAndDiseases": { "type": "array", "items": { "type": "string" } },
+        "harvestSeason": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["id", "name", "category"]
+    },
+    "FarmingGuide": {
+      "title": "Farming Guide",
+      "description": "Educational guide on a farming topic.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "difficulty": { "type": "string", "enum": ["beginner", "intermediate", "advanced"] },
+        "steps": { "type": "array", "items": { "type": "string" } },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["id", "title", "steps"]
+    },
+    "UserGardenItem": {
+      "title": "User Garden Item",
+      "description": "A crop that a user has added to their personal garden list.",
+      "type": "object",
+      "properties": {
+        "cropId": { "type": "string" },
+        "addedAt": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      },
+      "required": ["cropId", "addedAt"]
+    }
+  },
+  "firestore": {
+    "/crops/{cropId}": {
+      "schema": "Crop",
+      "description": "Collection of available crops."
+    },
+    "/guides/{guideId}": {
+      "schema": "FarmingGuide",
+      "description": "Collection of educational guides."
+    },
+    "/users/{userId}/garden/{itemId}": {
+      "schema": "UserGardenItem",
+      "description": "User's personal garden list."
+    }
+  }
+}

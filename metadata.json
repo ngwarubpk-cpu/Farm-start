@@ -1,0 +1,8 @@
+{
+  "name": "FarmSmart",
+  "description": "An educational platform for aspiring farmers, featuring interactive guides and an AI farming assistant to help you grow your own sustainable food.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

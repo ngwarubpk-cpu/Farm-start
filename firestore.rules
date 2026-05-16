@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isSuperAdmin() {
+      return isSignedIn() && 
+             request.auth.token.email == "ngwarubpk@gmail.com" && 
+             request.auth.token.email_verified == true;
+    }
+    function isAdmin() { return isSuperAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // Phase 4: Validation Blueprints
+    function isValidCrop(data) {
+      return data.keys().hasAll(['id', 'name', 'category', 'description', 'imageUrl']) &&
+             data.id is string && data.id.size() <= 100 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.category is string && data.category.size() <= 100 &&
+             data.description is string && data.description.size() <= 2000 &&
+             data.imageUrl is string && data.imageUrl.size() <= 1000;
+    }
+
+    function isValidGuide(data) {
+      return data.keys().hasAll(['id', 'title', 'steps', 'imageUrl']) &&
+             data.id is string && data.id.size() <= 100 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.steps is list && data.steps.size() <= 50 &&
+             data.imageUrl is string && data.imageUrl.size() <= 1000;
+    }
+
+    function isValidGardenItem(data) {
+      // Identity Integrity check: data.userId MUST match request.auth.uid if stored in data
+      // But we use path-based security and relational checks.
+      return data.cropId is string && data.cropId.size() <= 100 &&
+             data.addedAt is timestamp &&
+             (data.get('notes', '') is string && data.get('notes', '').size() <= 1000);
+    }
+
+    // 1. Curated Content (Public Read, Admin Write)
+    match /crops/{cropId} {
+      allow read: if true;
+      allow list: if true;
+      allow write: if isAdmin() && isValidCrop(incoming());
+    }
+
+    match /guides/{guideId} {
+      allow read: if true;
+      allow list: if true;
+      allow write: if isAdmin() && isValidGuide(incoming());
+    }
+
+    // 2. User Data (PII Isolation & Owner Access)
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      
+      // Relational Gate
+      match /garden/{itemId} {
+        // Secure List Queries: evaluate resource.data if needed, but path handles it here
+        allow read: if isOwner(userId);
+        
+        allow create: if isOwner(userId) && 
+                        isValidId(itemId) && 
+                        isValidGardenItem(incoming()) && 
+                        incoming().addedAt == request.time && // Temporal integrity
+                        incoming().keys().hasAll(['cropId', 'addedAt']) &&
+                        exists(/databases/$(database)/documents/crops/$(incoming().cropId)); // Relational check
+        
+        allow update: if isOwner(userId) && 
+                        isValidGardenItem(incoming()) &&
+                        incoming().cropId == existing().cropId && // Immutable field
+                        incoming().addedAt == existing().addedAt && // Immortal timestamp
+                        // Action-Based Update Gate
+                        incoming().diff(existing()).affectedKeys().hasOnly(['notes']);
+        
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+    }
+  }
+}
